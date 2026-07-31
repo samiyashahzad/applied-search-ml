@@ -15,12 +15,12 @@
 
 **Unit of Analysis:** A single web page.
 
-**Output:** An Opportunity Score and a ranked list of pages with reason codes explaining why each page received its score.
+**Output:** A ranked review queue, where each page receives an Opportunity Score together with one or more reason codes explaining why it was prioritized.
 
 **Action:** A human reviewer investigates the highest-ranked pages and decides whether to:
 - improve titles or meta descriptions
 - refresh content
-- improve content quality
+- review content quality
 - improve user engagement
 - monitor the page instead of changing it
 
@@ -29,6 +29,8 @@
 - *False Negative:* A valuable page with genuine opportunity isn't recommended, meaning the business misses additional traffic or engagement because the page was never reviewed.
 
 **Why data/ML helps here:** The relationship between impressions, CTR, position, freshness, engagement, and content characteristics is more complex than a single rule. A machine learning ranking model may identify useful combinations of signals that help prioritize review candidates more effectively than a fixed scoring rule. The goal is to improve prioritization rather than automate SEO decisions.
+
+**Why this problem matters:** Because SEO teams often manage thousands of pages, reviewing every page is unrealistic. A ranked opportunity queue allows analysts to focus their limited effort on the pages that may produce the greatest benefit if investigated, while leaving lower-priority pages for later review.
 
 ## 2. Data safety
 
