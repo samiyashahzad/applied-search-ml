@@ -1,6 +1,6 @@
 # Capstone Report — CTR / Engagement Opportunity Scoring
 
-- **Author:** Sophie
+- **Author:** Samiya Shahzad Malik
 - **Lane:** CTR / Engagement Opportunity Scoring
 - **Repo:** applied-search-ml
 - **Date:** 2026-07-31
@@ -41,18 +41,22 @@ IDs (grouping only, never features). Confirm nothing client-identifying appears 
 
 ## 3. Baseline
 
-The transparent rule or score you built first. Why it's a fair comparison, and its numbers on
-the same data and metric as your model.
+**Baseline:** Rank pages with CTR below 1% by descending impressions.
+*(Numbers will be added once the baseline model is run on the same data and metric as the ML model).*
 
 ## 4. Model / analysis
 
-Your method and why it fits the lane. The exact feature list (and what you left out on
-purpose). The target or proxy definition, in one sentence.
+**ML Task Type:** Ranking (with an opportunity score)
+
+**Target Proxy:** An initial proxy for review opportunity combines high search visibility (>1000 impressions), relatively low CTR (<1.0%), and low engagement (<5%).
+
+*(Exact method and feature list to be finalized).*
 
 ## 5. Evaluation
 
-Your split (grouped by client? time-aware?) and why. Metrics, model vs baseline **on the same
-split**. What the errors look like — a short error analysis beats a big metric table.
+**Metric:** The success of the ranking system will be evaluated using ranking-oriented metrics such as **Precision@K** or similar top-K evaluation, since the objective is to recommend the most valuable pages for review rather than classify every page correctly.
+
+*(Splits and error analysis to be finalized after modeling).*
 
 ## 6. Interpretation
 
