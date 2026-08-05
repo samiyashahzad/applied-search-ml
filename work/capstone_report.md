@@ -34,10 +34,14 @@
 
 ## 2. Data safety
 
-Which data you used and which columns you deliberately excluded (and why). Leakage risks you
-considered — especially label-derived fields (`trend_direction`, `trend_pct`) and pseudonymous
-IDs (grouping only, never features). Confirm nothing client-identifying appears anywhere in
-`work/`.
+**Data Used and Excluded:** 
+The dataset consists of daily performance records from GSC and GA4, aggregated to the monthly level (`content_hash_id`). We deliberately exclude pages with fewer than 500 monthly impressions. Our exploratory data analysis revealed that nearly 50% of pages naturally receive zero or near-zero impressions, which results in undefined (`0/0`) or wildly unstable CTRs. Excluding this long tail of low-traffic pages focuses the model on reliable, measurable signals.
+
+**Leakage Risks Assessed (Target Leakage):**
+To ensure the model learns generalized patterns rather than memorizing formulas, we strictly guard against Target Leakage. For example, when creating a proxy label (`is_opportunity`) defined mathematically using the `ctr` column, we proved during testing that feeding `ctr` back into the model as a feature inflates Precision@50 to a perfect `1.00`. The model simply reverse-engineers the label's formula. Consequently, any label-derived fields (like `ctr`) are strictly excluded from the feature set when predicting that specific proxy.
+
+**Identifiers and Privacy:**
+Pseudonymous keys such as `content_hash_id` and `client_hash_id` are used exclusively for grouping and joining data. They are never provided to the model as features. We confirm that no client-identifying details (e.g., raw URLs, real client names) appear anywhere in the `work/` directory.
 
 ## 3. Baseline
 

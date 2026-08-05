@@ -176,13 +176,62 @@ Still one page, one month. The fix changed *how* I filter before aggregating, no
 
 ---
 
+### 5. Validating the Exclusion Rule & Defining Features
+
+#### The 0 Impressions Investigation (Hypothesis A vs B)
+After fixing the aggregation query, I noticed the first 10 rows all had `total_impressions = 0.0` from the exact same client. This raised two hypotheses:
+- **Hypothesis A:** This is a genuinely low-traffic client with lots of pages that get zero visibility (expected shape of data, just an extreme example).
+- **Hypothesis B:** There's still a bug (e.g., GSC filtering is broken).
+
+I ran a zero-impressions diagnostic to check how many pages had 0 impressions and if they were isolated to one client. 
+**The finding:** Roughly half the rows in the entire `monthly_features` dataset had `total_impressions = 0`, and these zeros were spread across many clients at expected percentages. This confirmed **Hypothesis A**: most pages across a large content catalog simply do not receive meaningful search traffic in any given month. Zero impressions is the normal case, not a bug.
+
+#### Validating the 500-Impression Exclusion Rule
+This finding was a massive win for my capstone. Earlier, I wrote a rule to exclude pages with `< 500 impressions` because they are "unreliable". Now I have hard evidence to back it up:
+- Almost 50% of the dataset has exactly 0 impressions.
+- Pages with zero or near-zero impressions produce a CTR of `0/0` (undefined) or wildly unstable ratios from tiny counts.
+- The `< 500 impressions` cutoff isn't arbitrary—it statistically removes this unstable tail and focuses the model on pages where CTR and engagement are actually measurable.
+
+#### Defining the 5 Features (and the Leakage Check)
+I defined my five locked features. To prevent data leakage, every feature must be knowable **at the decision moment** (before an analyst decides to review a page).
+
+| Feature | Available when? |
+|---|---|
+| `total_impressions` | Raw count of search appearances during March, recorded independently by GSC before any human reviews the page; cannot be influenced by a review decision that hasn't happened yet. |
+| `total_clicks` | Same reasoning as impressions: a raw, already-settled count of March search behavior, recorded before any review occurs. |
+| `ctr` | Computed entirely from March's impressions and clicks, both already-settled facts; does not depend on any future outcome or review action. |
+| `average_position` | Google's measured ranking during March, fully settled by the time an analyst would review the page; not something that changes based on the review itself. |
+| `total_engaged_sessions` | Recorded user behavior from March via GA4, same category as the others — independent of any review decision. |
+
+*(Limitation to note in the report: GA4 data can arrive with more lag than GSC. While not a leakage issue for this retrospective analysis, it is a data-lag issue that should be flagged for real-time deployment).*
+
+---
+
+### 6. The Leakage Trap (How to cheat, and how to get caught)
+
+**The Goal:** The assignment was to prove I understand Data Leakage by adding a cheating column, watching a simple model (Depth-2 Tree) hit an absurdly perfect score (0.98+), and then removing the cheat to show the honest score.
+
+Here is the exact journey of how I failed twice before getting it right:
+
+#### Attempt 1: The Overcomplicated Statistics
+* **What I did:** I queried April CTR (future data) and ran a Spearman rank correlation against March CTR, plotting it on a scatter plot. 
+* **Why it was wrong:** I completely ignored the assignment instructions. The assignment asked for a simple Decision Tree and a Precision@50 score jump. I went down a statistical rabbit hole instead.
+
+#### Attempt 2: The Weak Leak (April CTR)
+* **What I did:** I deleted the scatter plots, built the Depth-2 Decision Tree, and fed it `april_ctr` as the cheating column. 
+* **What happened:** The model's score only jumped from `0.68` to `0.78`. 
+* **Why it was wrong:** A 10-point jump is not "absurdly perfect." Why didn't it hit 0.98+? Because the real world is messy. April's search behavior (CTR) is highly correlated with March (~0.85), but it fluctuates. A tiny Depth-2 tree couldn't use fluctuating future data to perfectly predict March's opportunities. It was a leak, but a *weak* leak.
+
+#### Attempt 3: The Realization — Target Leakage
+* **The Critique:** I realized how I defined my label: `is_opportunity = (total_impressions >= median) AND (ctr <= median)`. 
+* **The Fix:** My label was built using the March `ctr` column! If you want an absurd 0.98+ score jump, the ultimate cheat code isn't future data—it's giving the model the exact ingredient used to calculate the answer key. 
+* **The Result:** I dropped `april_ctr` and fed the model the March `ctr` column. The tree instantly reverse-engineered my math formula (`if ctr <= median, predict 1`). The Precision@50 jumped perfectly to **`1.00`**. When I removed the `ctr` column, it dropped back to an honest **`0.74`**. 
+
+#### The Lesson
+Not all leaks are equally severe. Leaking a future, correlated metric might give your model a 10-point bump. But leaking a component of your own label (**Target Leakage**) guarantees a massive, perfectly absurd score because the model isn't learning anything—it's just copying your math homework. **Never use a feature that was used to mathematically calculate your label.**
+
+---
+
 ## What is Next?
 
-To finish Notebook 3 (`w03_data_contract.ipynb`), I need to:
-
-1.  **Apply the fix** — update the feature query with the corrected WHERE clause (no CTE, row-level `client_has_` filters)
-2.  **Build 5 Features** — calculate features for my model from the corrected monthly aggregation (e.g., CTR, engagement rate, etc.)
-3.  **The Leakage Trap** — purposely build a "cheating" feature, watch the score jump, then delete it to prove I understand data leakage
-4.  **Name one limitation** of my data slice
-
-*Once this notebook is done, I will have a clean dataset ready for the modeling weeks!*
+With Notebook 3 (`w03_data_contract.ipynb`) finally complete, I have a perfectly clean dataset and a deep understanding of the traps (Zero vs Null, Pipeline gaps, and Target Leakage). Now it's time to move into the modeling weeks!

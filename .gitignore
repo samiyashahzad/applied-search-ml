@@ -38,4 +38,12 @@ update.py
 create_w02_notebook.py
 mock_execute.py
 assignments.md
-my_journey_mental_model.md
+update_mental_model.py
+diagnostic_leaks.py
+scratch_notes.md
+scratch_leakage_test.py
+update_leakage_test.py
+update_leakage_target.py
+add_client_filter_cells.py
+
+
