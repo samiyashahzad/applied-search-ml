@@ -245,6 +245,30 @@ Not all leaks are equally severe. Leaking a future, correlated metric might give
 
 ---
 
+
+
+### 8. The Baseline Queue & The Human Element (w04_baseline_score.ipynb)
+
+**The Goal:** Build the actual rule that flags underperforming pages, score them so human reviewers know which ones to fix first, and then manually review the top 20 to see where the math fails in the real world.
+
+#### The Volume Filter Trap (Section 1)
+* **What I almost did:** I almost wrote a rule saying, "Only flag pages if they are in the 'Good' or 'Excellent' impression tiers (>3000 impressions)."
+* **Why it was wrong:** By hard-filtering the population, I would have made my model literally blind to 69% of the dataset (the 'Moderate' tier). Even if a moderate-tier page had a screamingly massive CTR gap, the model would never look at it.
+* **The Fix:** Don't *filter* by volume, **rank** by volume. I apply the rule to *all* reliable pages (>=500 impressions), calculate the gap, and then multiply that gap by the volume to get `missed_clicks`. High volume pages naturally float to the top, but moderate pages aren't artificially ignored.
+
+#### The "Bouncer" Condition (Section 2)
+* **The Problem:** If you just rank by `missed_clicks` without a minimum threshold, a page with 1 million impressions and a tiny, insignificant 0.01% CTR gap will generate a huge `missed_clicks` score and shoot to the top of the queue. That page is perfectly healthy, just highly trafficked.
+* **The Fix:** I added a "Bouncer" condition: `ctr < (tier_avg_ctr / 2)`. The Bouncer says: "I don't care how much traffic you have, if your CTR isn't at least 50% worse than your peers, you aren't broken, so you don't even get on the list." Only the broken pages get ranked.
+
+#### The Top 20 Review & Real-World Doubts (Section 3 & 4)
+Math is perfect, but the real world (and Google search) is messy. When I manually reviewed the Top 20 results, I realized the math can't see the context of the search page. I found three massive reasons why a "SEVERE_CTR_GAP" might actually be a False Positive:
+1. **Zero-Click SERP:** If a page has 118,000 impressions in the Top 3 but literally 0 clicks, it's not a bad title tag. It's mathematically impossible for text. It's almost certainly a Google Instant Answer (like a calculator) or an Image Carousel where users get the answer without clicking.
+2. **Branded Search:** A page ranking #2 with huge impressions but low clicks might just be ranking for a competitor's brand name. Users see our link but only want the official competitor site.
+3. **Seasonality:** A page might spike in impressions but have terrible CTR because the content's title is out-of-date for the current season (e.g. says "2025" when users want "2026").
+
+**The ML Lesson:** My simple baseline rule assigns one global reason code (`SEVERE_CTR_GAP`) to everything. But a human can instantly spot the difference between a Zero-Click SERP and a Legitimately Broken Title. This proves why we eventually need a true ML model: to learn these nuanced differences and assign sharper, more granular reason codes (like `SEVERE_CTR_GAP_SUSPECTED_ZERO_CLICK`) to save human reviewers even more time.
+
 ## What is Next?
+Now that I've built a baseline rule that works, the next phase is to build the actual ML model that beats it!
 
 With Notebook 3 (`w03_data_contract.ipynb`) fully complete, I'm now diving into the **Week 4 Baseline Action Score** (`w04_baseline_score.ipynb`) to build rules that beat these statistical traps!
