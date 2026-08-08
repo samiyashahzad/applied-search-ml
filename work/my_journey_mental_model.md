@@ -247,7 +247,24 @@ Not all leaks are equally severe. Leaking a future, correlated metric might give
 
 
 
-### 8. The Baseline Queue & The Human Element (w04_baseline_score.ipynb)
+
+### 8. Evaluating the Signals: The Messy Details (w04_baseline_score.ipynb)
+
+Before building the final ranking queue, I had to statistically prove two hypotheses using bucket tables. I learned a ton of messy, real-world pandas details along the way.
+
+#### Signal A: Search Position vs. CTR
+* **The Hypothesis:** Search position strictly dictates what a "good" CTR is. A 0.5% CTR at Rank #1 is awful, but at Rank #50 it's a miracle. We can't use a single global threshold; we must judge pages against their peers.
+* **The Messy Details (Categorical Traps):** I used `pd.cut` to bin the `average_position` into tiers (`top_3`, `page_1`, `striking`, `page_3_5`, `deep`). But I learned that `pd.cut` generates a strict `Categorical` type. When I tried to do `.fillna("no_data")`, pandas threw an error because "no_data" wasn't an officially defined bin! I had to learn to do `.cat.add_categories(["no_data"])` *first* before filling the NaNs. 
+* **The Units Trap:** My table output `0.0039` for the Top 3 tier. I almost multiplied this by 100 to make it `0.39` for the rest of my math. **Huge mistake.** If you multiply a *percentage* (0.39) by impression volume, you artificially inflate your "missed clicks" by 100x! I learned to strictly display percentages for human readability, but **always use the raw fraction for math.**
+* **The Verdict (CONFIRMED):** CTR declined monotonically with zero reversals: `top_3 (0.39%) -> page_1 (0.35%) -> striking (0.29%) -> page_3_5 (0.15%) -> deep (0.03%)`. This perfectly proved that search position drives CTR, justifying the decision to compare a page against its own tier average.
+
+#### Signal B: Impression Volume vs. CTR
+* **The Hypothesis:** CTR is roughly independent of impression volume. A page with high traffic isn't inherently more "clickable" than a page with low traffic. 
+* **The Buckets:** I bucketed impressions into `moderate` (300+), `good` (3,000+), and `excellent` (30,000+). Since I already filtered out pages with < 500 impressions, I didn't need to worry about "no_data" or "low" tiers.
+* **The Verdict (CONFIRMED):** The CTR stayed completely flat across the tiers: `moderate (0.29%) -> good (0.30%) -> excellent (0.25%)`. Unlike Signal A's massive 10x drop, Signal B didn't trend anywhere. This proved that impression volume is *not* a signal of CTR quality. Instead, impression volume should only be used as a **multiplier** to prioritize which broken pages to fix first!
+
+
+### 9. The Baseline Queue & The Human Element (w04_baseline_score.ipynb)
 
 **The Goal:** Build the actual rule that flags underperforming pages, score them so human reviewers know which ones to fix first, and then manually review the top 20 to see where the math fails in the real world.
 
@@ -269,6 +286,4 @@ Math is perfect, but the real world (and Google search) is messy. When I manuall
 **The ML Lesson:** My simple baseline rule assigns one global reason code (`SEVERE_CTR_GAP`) to everything. But a human can instantly spot the difference between a Zero-Click SERP and a Legitimately Broken Title. This proves why we eventually need a true ML model: to learn these nuanced differences and assign sharper, more granular reason codes (like `SEVERE_CTR_GAP_SUSPECTED_ZERO_CLICK`) to save human reviewers even more time.
 
 ## What is Next?
-Now that I've built a baseline rule that works, the next phase is to build the actual ML model that beats it!
-
-With Notebook 3 (`w03_data_contract.ipynb`) fully complete, I'm now diving into the **Week 4 Baseline Action Score** (`w04_baseline_score.ipynb`) to build rules that beat these statistical traps!
+Now that I've built a baseline rule that works, the next phase is to build the actual ML model that beats it! Notebook 05 is next.

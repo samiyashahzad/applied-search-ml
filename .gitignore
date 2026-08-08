@@ -59,3 +59,4 @@ work/notebooks/inject_setup_json.py
 work/notebooks/inject_setup.py
 work/notebooks/inject_top20.py
 work/notebooks/update_mental_model_w04.py
+work/notebooks/update_mental_model_signals.py
