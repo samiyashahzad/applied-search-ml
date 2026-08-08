@@ -232,6 +232,19 @@ Not all leaks are equally severe. Leaking a future, correlated metric might give
 
 ---
 
+### 7. The Danger of Averages (w04_baseline_score.ipynb)
+
+**The Problem:** I'm building a baseline rule that flags pages as "underperforming" if their CTR falls below the average CTR of their position tier (e.g., positions 3-5). But I have to exclude low-impression pages before calculating that tier average. Why?
+
+* **The Noise (Small Denominators):** A solid page with 30 clicks out of 2,000 impressions has a true, reliable CTR of **1.5%**. But a page with only 3 impressions might get 1 lucky click, resulting in a **33%** CTR. 
+* **The Unweighted Average Trap:** If I just do a standard average (`.mean()`) across the tier, every page gets one equal vote. The noisy 3-impression page (33%) gets the exact same mathematical weight as the solid 2,000-impression page (1.5%). 
+* **The Distortion:** Because these few noisy pages have massive CTRs compared to the true average, they mathematically distort the tier's average, artificially inflating it (e.g., pulling it from a true 1.5% up to a fake 2.2%).
+* **The Business Impact:** If my rule flags pages that fall below a fake 2.2% baseline, it will accidentally flag perfectly healthy, normal pages (like the ones sitting at 1.5%) as "underperforming". I would end up wasting the SEO team's time chasing false positives. 
+
+**The Fix:** Always filter out the noise (e.g., `< 500 impressions`) *before* taking the average, so the baseline reference point is built purely on solid, statistically reliable data.
+
+---
+
 ## What is Next?
 
-With Notebook 3 (`w03_data_contract.ipynb`) finally complete, I have a perfectly clean dataset and a deep understanding of the traps (Zero vs Null, Pipeline gaps, and Target Leakage). Now it's time to move into the modeling weeks!
+With Notebook 3 (`w03_data_contract.ipynb`) fully complete, I'm now diving into the **Week 4 Baseline Action Score** (`w04_baseline_score.ipynb`) to build rules that beat these statistical traps!
