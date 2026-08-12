@@ -60,3 +60,7 @@ work/notebooks/inject_setup.py
 work/notebooks/inject_top20.py
 work/notebooks/update_mental_model_w04.py
 work/notebooks/update_mental_model_signals.py
+work/notebooks/check_april.py
+work/notebooks/update_w05_final.py
+work/notebooks/update_w05_gaps.py
+work/notebooks/update_w05.py
