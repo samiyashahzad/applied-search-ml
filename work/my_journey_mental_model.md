@@ -285,5 +285,41 @@ Math is perfect, but the real world (and Google search) is messy. When I manuall
 
 **The ML Lesson:** My simple baseline rule assigns one global reason code (`SEVERE_CTR_GAP`) to everything. But a human can instantly spot the difference between a Zero-Click SERP and a Legitimately Broken Title. This proves why we eventually need a true ML model: to learn these nuanced differences and assign sharper, more granular reason codes (like `SEVERE_CTR_GAP_SUSPECTED_ZERO_CLICK`) to save human reviewers even more time.
 
+## Phase 3: The ML Modeling Lane (w05_model.ipynb)
+
+**The Goal:** Build a Machine Learning model (Linear Regression first, then Random Forest) to predict April `missed_clicks` using only March features, and see if it can capture more total missed clicks than my W04 baseline heuristic.
+
+### 1. Taming the Whales (Log Transforms)
+*   **The Problem:** The `missed_clicks` target is heavily skewed (heavy-tailed). A few "whale" pages have 800+ missed clicks, while typical pages have under 5. Because Linear Regression minimizes *squared* error, it will completely abandon the normal pages and bend its entire math formula to fit the whales.
+*   **The Fix:** I used `np.log1p()` on the target and the massive volume features (`total_impressions_march`, `clicks`, `sessions`). The log transform violently shrinks massive gaps (a gap of 45,000 shrinks to ~1.0) while leaving small gaps relatively spread out. 
+*   **The Nuance:** I did *not* log transform `ctr_march` or `average_position_march` because they are naturally bounded (0-1 and 1-100+) and are not heavy-tailed.
+*   **The Gotcha:** You have to remember to un-log the predictions using `np.expm1()` immediately after `model.predict()`! If you sum up log-space predictions to report Business Value, you get a mathematically meaningless number.
+
+### 2. The Group Shuffle Split (Avoiding Memorization)
+*   **The Leakage Trap:** If I did a random `train_test_split`, pages from Client A would land in both the training set and the test set. The model would just memorize Client A's specific website structure (e.g., they have high CTR on "/blog/" pages) and cheat on the test set. 
+*   **The Fix:** I used `GroupShuffleSplit` on `client_hash_id`. If Client A goes to the training set, ALL their pages go to the training set. The test set only sees brand new clients, simulating the real-world deployment of the model.
+*   **The Lumpy Reality:** I set `test_size=0.25` expecting ~11 clients in the test set. I got 8. Why? Because the data is so lumpy (one client had 31,000 pages), the splitter hit its row-count threshold early. 
+
+### 3. The Evaluation (The Grader)
+To evaluate the model fairly, I had to sort the test set by what the *model* predicted was best, but grade it against what *actually* happened in April. I used two metrics on the Top 50 recommendations:
+1.  **Precision@50:** Did the top 50 actually meet the W04 rule in April? (Target vs. Base Rate of random guessing).
+2.  **Total Captured Clicks:** The sum of actual April missed clicks caught in the Top 50 net (The Ultimate Business Value).
+
+### 4. The Sensitivity Check & The Grand Finale Verdict
+
+I ran the evaluation on three models: The W04 Baseline Heuristic, Linear Regression (LR), and Random Forest (RF).
+
+*   **The Scoreboard:**
+    *   **Baseline:** 94% Precision@50 | 2,131 Captured Clicks
+    *   **Linear Regression:** 96% Precision@50 | 1,274 Captured Clicks
+    *   **Random Forest:** 86% Precision@50 | 1,698 Captured Clicks
+
+*   **Wait, the Baseline won?** Yes! The ML models completely failed to beat the simple SQL rule from W04. 
+*   **Why did LR fail?** While the log-transform stabilized the model, it made it too conservative. It prioritized "safe" medium opportunities instead of aggressively hunting the whales like the Baseline did.
+*   **Why did RF fail?** Machine Learning models look for hidden, complex patterns. But our target (`missed_clicks`) is literally a strict algebraic formula: `CTR Gap * Volume`. You can't beat a perfect algebraic representation by throwing a black box at it.
+*   **The Client Concentration Caveat:** 78% (39 out of 50) of the model's top predictions came from a single client. The test set was highly concentrated, so these results are directional. A true `GroupKFold` cross-validation would be needed to prove it works evenly across all clients.
+*   **The Sensitivity Check:** I retrained the LR model without `log_impressions` and `log_clicks`. The model completely crashed, capturing only 179 clicks (losing 1,096 clicks of value). This connects directly back to my multicollinearity finding: my five features aren't five independent signals. Volume and CTR-related columns are highly entangled, and once you strip volume out, there's not much genuinely independent SEO signal left in what remains. The model's signal is almost entirely volume-driven; `ctr_march`, `log_engaged_sessions_march`, and `average_position_march` alone carry very little predictive power for which pages will have big April opportunities.
+*   **The Exciting Conclusion & Final Verdict:** It feels anti-climactic that the "fancy AI" lost, but this is a massive win. A sensitivity check confirmed the model's signal is almost entirely volume-driven — removing impression/click features collapsed captured value by 86% (1,274 → 179 clicks for LR) — meaning the model has not found independent SEO insight beyond 'big pages stay big,' which is consistent with the baseline's simpler, volume-weighted approach already capturing most of the real signal. Because the problem is fundamentally algebraic (CTR Gap × Volume), the Baseline heuristic remains the recommended production system—it is more performant, perfectly interpretable, and requires zero ML infrastructure. That is exactly what a Senior Data Scientist is supposed to do: save the company money by finding the simplest, most effective solution.
+
 ## What is Next?
-Now that I've built a baseline rule that works, the next phase is to build the actual ML model that beats it! Notebook 05 is next.
+Wrapping up the final reporting and cleaning up the repository for submission!
