@@ -314,12 +314,38 @@ I ran the evaluation on three models: The W04 Baseline Heuristic, Linear Regress
     *   **Linear Regression:** 96% Precision@50 | 1,274 Captured Clicks
     *   **Random Forest:** 86% Precision@50 | 1,698 Captured Clicks
 
-*   **Wait, the Baseline won?** Yes! The ML models completely failed to beat the simple SQL rule from W04. 
-*   **Why did LR fail?** While the log-transform stabilized the model, it made it too conservative. It prioritized "safe" medium opportunities instead of aggressively hunting the whales like the Baseline did.
-*   **Why did RF fail?** Machine Learning models look for hidden, complex patterns. But our target (`missed_clicks`) is literally a strict algebraic formula: `CTR Gap * Volume`. You can't beat a perfect algebraic representation by throwing a black box at it.
-*   **The Client Concentration Caveat:** 78% (39 out of 50) of the model's top predictions came from a single client. The test set was highly concentrated, so these results are directional. A true `GroupKFold` cross-validation would be needed to prove it works evenly across all clients.
+*   **Did the ML models win?** No. Neither ML model improved the primary business metric: total missed clicks captured in the Top 50. Linear Regression did achieve 96% Precision@50 (higher than the baseline's 94%), but captured significantly less raw business value.
+*   **Why did LR capture less value?** One possible explanation is that modeling the log-transformed target reduced the influence of extreme high-opportunity pages, which may have contributed to LR's lower captured business value.
+*   **Why didn't RF beat the heuristic?** The simple heuristic was better at ranking future business opportunity than the two supervised models I tested. The W04 baseline explicitly prioritizes volume, perfectly aligning with the business goal.
+*   **The Client Concentration Caveat:** The overall result is directional because the Top-50 recommendations were highly concentrated in one client (78% or 39/50 predictions came from one client). Aggregate metrics can hide structure, and GroupKFold or repeated group-level validation would be required to establish robust performance across clients.
 *   **The Sensitivity Check:** I retrained the LR model without `log_impressions` and `log_clicks`. The model completely crashed, capturing only 179 clicks (losing 1,096 clicks of value). This connects directly back to my multicollinearity finding: my five features aren't five independent signals. Volume and CTR-related columns are highly entangled, and once you strip volume out, there's not much genuinely independent SEO signal left in what remains. The model's signal is almost entirely volume-driven; `ctr_march`, `log_engaged_sessions_march`, and `average_position_march` alone carry very little predictive power for which pages will have big April opportunities.
-*   **The Exciting Conclusion & Final Verdict:** It feels anti-climactic that the "fancy AI" lost, but this is a massive win. A sensitivity check confirmed the model's signal is almost entirely volume-driven — removing impression/click features collapsed captured value by 86% (1,274 → 179 clicks for LR) — meaning the model has not found independent SEO insight beyond 'big pages stay big,' which is consistent with the baseline's simpler, volume-weighted approach already capturing most of the real signal. Because the problem is fundamentally algebraic (CTR Gap × Volume), the Baseline heuristic remains the recommended production system—it is more performant, perfectly interpretable, and requires zero ML infrastructure. That is exactly what a Senior Data Scientist is supposed to do: save the company money by finding the simplest, most effective solution.
+*   **The Final Verdict:** The supervised models tested did not outperform the existing heuristic on the primary business objective of total missed clicks captured in the Top 50. Linear Regression achieved slightly higher Precision@50, while Random Forest substantially outperformed Linear Regression on captured opportunity, but neither matched the baseline's 2,131 captured clicks. Given the current feature set and client-held-out evaluation, the baseline remains the strongest candidate for production. Further ML work should focus on richer features or a different problem formulation rather than additional model complexity.
+
+
+## Phase 4: The Validation Audit (w06_validation_audit.ipynb)
+
+**The Goal:** In Week 5, the model looked decent. In Week 6, my job was to ruthlessly audit *why* it looked good, using techniques from a research paper, and tear it down to ensure it was honest. This week was all about catching the ways ML models lie.
+
+### 1. The Paper Audit (Section 1)
+I read a professional SEO research paper that made huge claims (like "long pages always rank better"). I learned to spot confounding variables—like asking if those long pages rank better simply because they have commercial intent, not just because they have more words. I also spotted data leakage in their use of Random Forests with standard cross-validation. I learned that just because a paper uses fancy ML doesn't mean its methodology is bulletproof.
+
+### 2. The Split Audit (Section 2)
+I turned that skepticism on my own Week 5 model to see what happens when you split data wrong.
+*   **The Cheat:** I ran the model with a plain random split (`train_test_split`). The model hallucinated an insanely high score: **98.0% Precision@50 and over 3,100 captured clicks!** (I initially got confused and thought it hit 100%, but the code proved it was exactly 98.0%). 
+*   **The Reality:** Why did it score so high? Because the random split scrambled rows, allowing the model to simply memorize the baseline scale of massive "whale" clients who leaked into both the train and test sets.
+*   **The Fix:** When I used the honest `GroupShuffleSplit` (so the test set only saw *new* clients), the precision dropped to 96.0% and captured clicks crashed down to a realistic 1,274. This messy detail proved exactly why Grouped splits are mandatory for client portfolio data.
+
+### 3. The Leakage Audit & The Poison Test (Section 3)
+I audited my own model for "target leakage" to ensure I wasn't secretly feeding it the answers. 
+*   I confirmed my features (March data) were strictly separated in time from the target (April data) and didn't accidentally include the W04 baseline heuristic's own score.
+*   **The Poison Test:** To prove my evaluation pipeline actually works, I deliberately injected a "poison" feature (`missed_clicks_april * 0.9`). 
+*   **The Big Catch:** When poisoned, the Precision@50 barely moved (from 96.0% to 98.0%) because it was already at the metric's mathematical ceiling. But the **Total Captured Clicks** shot up from 1,274 to 2,651! This proved that precision is a weak instrument at the ceiling, and that volume-based metrics (like captured clicks) tell the real story and are far more sensitive to spotting leakage.
+
+### 4. The Final Claim Rewrite (Section 4)
+I took a bold, overconfident claim from my Week 5 conclusion (*"the upward trend from LR to RF proves flexible models are worth it"*) and rewrote it using safe, scientific language. 
+*   **The Reality Check:** I realized that my original Week 5 conclusion completely ignored the messy details: my entire evaluation rested on a *single* grouped split (which was dominated by one whale client), and my sensitivity analysis showed the model's signal completely crashed without volume features.
+*   I humbled my final claim to state that we only observed a **directional** signal, and that future work must validate across multiple splits to prove anything definitively.
+
 
 ## What is Next?
 Wrapping up the final reporting and cleaning up the repository for submission!
