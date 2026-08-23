@@ -1,0 +1,15 @@
+{
+  "total_eligible_pages": 42174,
+  "archetype_counts": {
+    "INSUFFICIENT_EVIDENCE": 40622,
+    "TRUE_UNDERPERFORMER": 694,
+    "BRAND_INTENT_MISMATCH": 518,
+    "CONTENT_FAILURE": 335,
+    "ZERO_CLICK_ANOMALY": 5
+  },
+  "archetype_opportunity_size": {
+    "BRAND_INTENT_MISMATCH": 13411.49324147013,
+    "CONTENT_FAILURE": 36576.0,
+    "TRUE_UNDERPERFORMER": 25084.460140707284
+  }
+}
