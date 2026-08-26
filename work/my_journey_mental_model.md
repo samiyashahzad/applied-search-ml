@@ -347,5 +347,88 @@ I took a bold, overconfident claim from my Week 5 conclusion (*"the upward trend
 *   I humbled my final claim to state that we only observed a **directional** signal, and that future work must validate across multiple splits to prove anything definitively.
 
 
+## Phase 5: The Content Action Playbook (w07_action_playbook.ipynb)
+
+**The Goal:** Take that single blunt `SEVERE_CTR_GAP` flag from Week 4 and turn it into something a real team could actually use — distinct archetypes, each with its own rule, its own action, and its own team. Not just "this page is bad" but "this page is bad *in this specific way*, and here's who should look at it."
+
+### 1. The Taxonomy — Why One Label Wasn't Enough
+
+Back in ML-04, my top-20 manual review showed me three completely different problems hiding behind the same `SEVERE_CTR_GAP` label: zero-click SERPs (where nobody *can* click), branded search (where nobody *wants* to click on my client's page), and legitimately broken titles (where people *would* click if the snippet was better). One label can't tell these apart, and if you can't tell them apart, you send the same fix instruction to every team — which is wrong.
+
+A fourth pattern showed up during analysis that I didn't expect: pages where the title *works great* (people click!) but the page itself fails (they bounce immediately). This is the opposite problem — fixing the title here would actually *break* the one thing that's working.
+
+So I ended up with five archetypes, evaluated in strict precedence order (first match wins, one archetype per page):
+
+| # | Archetype | Rule | Action | Team |
+|---|---|---|---|---|
+| 1 | Zero-click anomaly | clicks = 0 AND impressions ≥ 30,000 | Check the SERP — is this unwinnable? | SEO analyst |
+| 2 | Brand/intent mismatch | position ≤ 5 AND impressions ≥ 3,000 AND ctr < 25% of tier avg | Check GSC queries — is it branded? | SEO analyst |
+| 3 | Content failure | clicks ≥ 50 AND engagement_rate < 1% | Do NOT touch the title — audit the page | Content/dev |
+| 4 | True underperformer | clicks ≥ 10 AND ctr < 50% of tier avg | Rewrite the title/meta | SEO copywriter |
+| 5 | Insufficient evidence | none of the above | Do nothing, revisit next month | Nobody |
+
+### 2. The Precedence Order — Why This Sequence and Not Another
+
+I derived the order from cost-of-error reasoning. At each step, I default to the archetype whose mistake is cheaper:
+
+- **Filter unactionable noise first** (1 & 2): If I don't, I waste writer-hours on zero-click SERPs and competitor branded terms. Skipping a page costs nothing.
+- **Content failures before metadata failures** (3 before 4): If a page fails both CTR and engagement, content is the deeper root cause. Fixing content might also fix CTR, but fixing the title can't fix broken content.
+- **Only then flag metadata candidates** (4): By this point, anything landing here has working content behind a bad snippet — the right problem for a copywriter.
+- **Catch-all for noise** (5): I refuse to act on pages where I don't have enough data to diagnose confidently.
+
+The key design property I'm proud of: Archetypes 1-3 all point toward "do NOT touch the metadata." Archetype 4 points toward "go fix the metadata." This isn't relabeling the same fix four times — it's genuinely routing different problems to different teams.
+
+### 3. The Ranking Metrics — The "Honest Numbers" Decision
+
+Each archetype needs its own ranking metric to sort the queue. This is where I caught myself almost being dishonest:
+
+- **Archetype 1 (zero-click):** I almost ranked by `missed_clicks` — but then I realized that's dishonest. `missed_clicks` assumes the opportunity was real (CTR gap × impressions). But the whole *point* of Archetype 1 is that I suspect clicks were never possible at all. Using `missed_clicks` here would be pretending I know the opportunity was real when the entire archetype exists because I *don't know that*. So I rank by raw `total_impressions` instead — biggest exposure first, then a human decides if it's winnable.
+
+- **Archetype 2 (brand mismatch):** `missed_clicks` is honest here because these pages have real CTR gaps against known peers.
+
+- **Archetype 3 (content failure):** I created `missed_engagement = total_clicks - engaged_sessions`. A page with 200 clicks and 3 engaged sessions (missed_engagement = 197) represents a much bigger content failure than a page with 10 clicks and 5 engaged sessions (missed_engagement = 5). Biggest gap at the top.
+
+- **Archetype 4 (true underperformer):** `missed_clicks` again — honest here for the same reason as Archetype 2.
+
+I also made sure each archetype's output table only shows the columns relevant to its own ranking. Showing `missed_clicks` next to Archetype 1's ranking would be misleading — it would sit right there looking like a meaningful number when I already established it isn't.
+
+### 4. Intended Use and Limits — Being Honest About What This Can't Do
+
+I wrote three explicit "this is NOT" statements:
+- I cannot predict traffic gains. I observe a CTR gap, but the actual recovery depends on things outside this data.
+- I did not decode Google's algorithm. I observed associations in one portfolio over one month, not causes.
+- Nothing should be automated. Every flag requires a human to verify.
+
+And the known blind spots:
+- ~22% of clients are invisible (no GA4+GSC connectivity — from my ML-04 finding)
+- Pages under 500 impressions are excluded (the small-denominator discipline from ML-03)
+- ~75% of eligible pages land in Insufficient Evidence (by requiring ≥10 clicks for Archetype 4, I chose trustworthy flags over comprehensive coverage — that's a real trade-off I'm making deliberately)
+- Single month of data (March 2026 only — seasonal patterns could shift everything)
+
+### 5. The No-Go List — Where Every Archetype Could Be Wrong
+
+Each archetype has a false-positive scenario where a human must intervene:
+- **Archetype 1:** Might actually be a legitimate zero-click informational query — no title fix will help, ever.
+- **Archetype 2:** Might actually be a broad head-term that needs a real title fix, not a branded mismatch. A human needs to check the GSC queries.
+- **Archetype 3:** Might be a quick-reference page where a fast bounce *is* success. GA4 can't tell "bounced because broken" from "bounced because satisfied in 2 seconds."
+- **Archetype 4:** Might be serving a narrow niche inside a broad query perfectly well — the "low" CTR against a broad average might be optimal for its actual audience.
+
+And the hard rules: Archetype 1 pages never get content changes (the problem is on the SERP). Archetype 3 pages never go to a copywriter (the title is the one thing that's working). Archetype 5 gets zero action, period.
+
+### 6. Monitoring — How I'd Know My Thresholds Went Stale
+
+The `tier_avg_ctr` values baked into Archetypes 2 and 4 are a March snapshot, not permanent truths. I walked through a concrete example: if the real top_3 average drifted from 0.39% down to 0.20% over six months, a page performing at the new normal (0.20%) would still get flagged as `TRUE_UNDERPERFORMER` by my March-frozen rule — because 0.20% < 50% of 0.39% = 0.195%. That's a false positive from stale thresholds, not from anything wrong with the page.
+
+The monitoring signal is dead simple: re-run `value_counts()` on each new month's data. My March fingerprint is ~40,622 Insufficient Evidence, ~694 True Underperformer, ~518 Brand Mismatch, ~335 Content Failure, ~5 Zero-Click. If any bucket suddenly doubles or halves without an obvious explanation (like adding new clients), something drifted — recompute `tier_avg_ctr` before trusting that month's queue.
+
+This isn't an automated retraining pipeline. It's a manual monthly sanity check. Consistent with the whole philosophy: decision-support, not automation.
+
+### 7. The Exports
+
+Three outputs:
+- **Queue CSV** (`content_action_playbook_queue.csv`): The full ranked queue, one row per page, with archetype labels and ranking metrics. Goes to `work/outputs/`, never committed.
+- **Metrics JSON** (`w07_playbook_metrics.json`): Total eligible pages, archetype counts, and opportunity size (total missed_clicks for Archetypes 2 & 4, total missed_engagement for Archetype 3 — deliberately no missed_clicks for Archetype 1, because it's dishonest there).
+- **Three figures**: Archetype distribution (log scale bar chart — needed log because Archetype 5 has 40k pages and Archetype 1 has 5), missed clicks by position tier (for Archetypes 2 & 4), and missed engagement by position tier (for Archetype 3).
+
 ## What is Next?
 Wrapping up the final reporting and cleaning up the repository for submission!
