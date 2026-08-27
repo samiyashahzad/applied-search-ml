@@ -123,7 +123,7 @@ All models were evaluated on the same grouped test set (8 clients, 5,254 pages) 
 | Random Forest | 86.0% | 1,698 |
 | *Base rate (random guessing)* | *48.6%* | *—* |
 
-![Model vs Baseline comparison — captured clicks and precision on grouped test set](../work/figures/results_comparison.png)
+![Model vs Baseline comparison — captured clicks and precision on grouped test set](figures/results_comparison.png)
 
 ### What the random-vs-grouped comparison revealed
 
@@ -194,11 +194,11 @@ Every page is evaluated top-down through this list. A page can only belong to on
 | Content failure | 335 |
 | Zero-click anomaly | 5 |
 
-![Archetype distribution across 42,174 eligible pages](../work/figures/archetype_distribution.png)
+![Archetype distribution across 42,174 eligible pages](figures/archetype_distribution.png)
 
-![Missed clicks opportunity by archetype](../work/figures/missed_clicks_opportunity.png)
+![Missed clicks opportunity by archetype](figures/missed_clicks_opportunity.png)
 
-![Missed engagement opportunity by archetype](../work/figures/missed_engagement_opportunity.png)
+![Missed engagement opportunity by archetype](figures/missed_engagement_opportunity.png)
 
 ### Why the precedence order matters
 
